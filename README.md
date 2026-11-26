@@ -1,134 +1,34 @@
-# TripMate – Smart Travel Planning & International Booking Platform
+# TripMate – Smart Travel Planning & Booking Platform
 
-> **"Your Journey, Your Budget, Your Adventure."**  
-> *"Fly to Dubai. Plan Your Stay. Explore More. Save More."*
+*Your Journey, Your Budget, Your Adventure.* Dhaka → Dubai flights, hotels, budget trip planner and a review-to-reward program.
 
-TripMate is a full-stack international travel agency platform engineered for Bangladeshi travelers traveling from Dhaka (Hazrat Shahjalal International Airport - DAC) to Dubai, United Arab Emirates (comparing Dubai International Airport - DXB and Al Maktoum International Airport - DWC).
+One Next.js 14 (App Router) app. Frontend and backend are both Next.js. Database is NeonDB PostgreSQL via `pg` with native, parameterized SQL. No ORM, no Express.
 
----
+## Setup
+1. `npm install` (Node 20.9+). Uses Next.js 16.4.6 and React 19; `npm audit` reports 0 vulnerabilities at release time.
+2. Create a Neon project and copy its connection string.
+3. `cp .env.example .env` and fill in `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
+4. `npm run db:setup` applies `database/schema.sql`, loads `database/seed.sql` (only if empty) and creates the admin user.
+   Manual alternative: paste `schema.sql`, then `seed.sql`, into the Neon SQL Editor.
+5. `npm run dev` then open http://localhost:3000. Sign in at `/login` with the admin account to reach `/admin`.
+6. Optional: with the app running, `npm run test:e2e` runs 88 API checks (needs `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `.env`; set `BASE` if not on port 3000). **Run it against a development database**, it creates test users and bookings.
 
-## 🌟 Key Features
+## What is implemented
+- Homepage, flight search + sample flights, airport comparison (DXB/DWC), hotel discovery with filters and detail pages, Dubai destination guide, smart budget planner (estimate, itinerary, recommendations, save and book), contact form.
+- Unified booking (flight / hotel / package / personalized) with unique `TM-XXXXXX` reference, status workflow `pending → confirmed → completed`, cancellation, server-computed totals. No payments.
+- Auth: bcrypt hashing, signed httpOnly session cookie, roles re-read from the database on every request, `proxy.js` (Next 16 middleware) plus server-side checks on every admin route/page, same-origin check on JSON endpoints.
+- Rewards: reviews only for completed bookings, one per booking (DB unique), admin approval, rating never affects eligibility, automatic `TRIPMATE20-XXXXX` voucher in the approval transaction, backend validation, one-time redemption (row lock), expiry, restore on cancellation, discount applies to hotel accommodation only.
+- Admin: stats, booking management, review moderation, reward settings (partner hotel, rooms, discount, expiry, conditions), vouchers, CRUD for hotels/flights/packages (archive, not delete), contact inbox.
+- Transactions (`withTransaction`) for booking creation, voucher redemption and review approval/reward generation.
 
-### 1. ✈️ Dhaka to Dubai Flight Search & Dual-Airport Hub
-- Direct route search from Dhaka (DAC) to Dubai International (DXB) and Al Maktoum International (DWC).
-- Side-by-side airport comparison guide (DXB for city central convenience vs. DWC for budget savings).
-- Major airline schedules (Biman Bangladesh Airlines, Emirates, Flydubai, US-Bangla).
-- Economy and Business class fare estimates in Bangladeshi Taka (BDT / ৳) and baggage guidelines.
+## Design decisions to know
+- All prices are demo estimates stored in the database or `lib/planner.js` (`CONFIG`) and clearly labeled. No live flight/hotel data. Flight data is modular: replace `/api/flights/search` with an airline API later.
+- Attractions live in `lib/dubai.js` (not a DB table, since the spec fixes 11 tables).
+- Vouchers apply to **Hotel only** bookings at the configured partner hotel.
+- A rejected review is final for that booking.
+- The demo partner hotel is labeled as not an actual commercial partnership.
 
-### 2. 🧮 Smart Personalized Trip Planner
-- Interactive budget calculator that balances travel days (3–14 days), number of travelers, and total BDT budget.
-- Dynamic cost breakdown:
-  - **Flights:** DAC to DXB/DWC return estimates with cabin class multipliers.
-  - **Hotels:** Budget, Standard, Premium, or 5-Star Luxury room night rates.
-  - **Food:** Halal cafeterias to fine-dining allowances per person/day.
-  - **Attractions:** Customizable checklist of top Dubai sights.
-- Real-time **Within Budget** / **Over Budget** indicator.
-
-### 3. 🏨 Curated Dubai Hotels & 20% Partner Hotel
-- Handpicked properties in prime districts: Downtown, Al Barsha, Dubai Marina, Deira, and Palm Jumeirah.
-- Features **TripMate Dubai Partner Hotel (Demo)** in Al Barsha near Mall of the Emirates.
-- Integrated voucher validation: apply code `TRIPMATE20-XXXXX` for an instant 20% discount on hotel bookings!
-
-### 4. 🎁 TripMate Loyalty Program ("Review 3 Times, Get 20% OFF!")
-- Transparent 4-step loyalty progression:
-  1. Book & travel to Dubai.
-  2. Write an authentic review with rating and comments.
-  3. TripMate admin reviews and verifies the submission.
-  4. Once **3 verified reviews** are approved, the platform automatically issues a unique 20% discount voucher (`TRIPMATE20-XXXXX`) valid for 12 months at the partner hotel.
-
-### 5. 🌴 Signature International Package (Dhaka to Dubai – Dubai Explorer)
-- **Duration:** 5 Days / 4 Nights
-- **Price:** ৳85,000 per person (Demo Estimate)
-- **Day-by-Day Interactive Timeline:**
-  - Day 1: Dhaka departure, Dubai arrival, VIP private transfer, Marina Dhow Cruise Dinner.
-  - Day 2: Modern Dubai City Tour & Burj Khalifa "At The Top" (124th/125th floor).
-  - Day 3: Red Dunes Desert Safari 4x4 dune bashing, camel ride, BBQ buffet & Tanoura fire show.
-  - Day 4: Palm Jumeirah monorail, Miracle Garden / Museum of the Future, traditional souks.
-  - Day 5: Souvenir shopping, check-out, airport transfer, and flight back to Dhaka.
-
-### 6. 📊 Dashboards & Role-Based Access Control
-- **Customer Dashboard:** Manage reservations, track loyalty progress, view vouchers, submit reviews.
-- **Admin Dashboard:** Real-time KPI metrics, booking status management, review verification queue with 1-click Approve/Reject (auto-unlocking vouchers upon 3rd approval), and inquiry monitoring.
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | **Next.js 14 (App Router)**, React 18, Tailwind CSS, Lucide React icons, JavaScript (ES6+) |
-| **Backend** | **Node.js + Express.js**, REST API, JWT authentication, bcryptjs, CORS |
-| **Database** | **NeonDB PostgreSQL** with **Prisma ORM** (`DATABASE_URL`) + resilient fallback store |
-| **Styling** | Custom Tailwind theme (Ocean Blue `#087E8B`, Deep Navy `#123047`, Accent Soft Teal `#D9F3EF`, Coral `#FF5A5F`) |
-
----
-
-## 🚀 Quick Start Guide
-
-### Prerequisites
-- Node.js (v18.x or higher)
-- npm (v9.x or higher)
-
-### 1. Installation
-Clone the repository and install dependencies:
-
-```bash
-# In project root
-npm --prefix backend install --strict-ssl=false
-npm --prefix frontend install --strict-ssl=false
-```
-
-### 2. Environment Configuration
-
-#### Backend (`backend/.env`):
-```env
-PORT=5000
-DATABASE_URL="postgresql://user:password@ep-demo-pooler.ap-southeast-1.aws.neon.tech/tripmate_db?sslmode=require"
-JWT_SECRET="tripmate_jwt_super_secret_production_key_2026"
-JWT_EXPIRES_IN="7d"
-NODE_ENV="development"
-FRONTEND_URL="http://localhost:3000"
-```
-
-#### Frontend (`frontend/.env.local`):
-```env
-NEXT_PUBLIC_API_URL="http://localhost:5000/api"
-```
-
-### 3. Run Application
-
-#### Option A: One-Click Startup Scripts
-- **Windows Batch:** Double-click `start.bat`
-- **PowerShell:** Run `./start-dev.ps1`
-
-#### Option B: Manual Command Line
-
-**Terminal 1 (Backend - Port 5000):**
-```bash
-cd backend
-npm run dev
-```
-
-**Terminal 2 (Frontend - Port 3000):**
-```bash
-cd frontend
-npm run dev
-```
-
-Now open **http://localhost:3000** in your web browser.
-
----
-
-## 👥 Demo Credentials
-
-For testing and demonstration, use the following pre-configured credentials or the 1-click buttons on the login page:
-
-| Role | Email | Password | Perks |
-|---|---|---|---|
-| **Verified Customer** | `tanvir@example.com` | `123456` | Has 3 bookings, 2 verified reviews (1 away from 20% voucher!) |
-| **Platform Administrator** | `admin@tripmate.com` | `123456` | Full access to review verification queue & booking statuses |
-
----
-
-## 🛡️ License
-TripMate is licensed under the MIT License. Demo prices and airline schedules are realistic estimates designed for travel planning.
+## Known limitations
+- No rate limiting on login/contact (add one, e.g. Upstash, before launch). No email notifications. No password reset.
+- Hotel/destination photos load from Unsplash and Google Fonts from their CDNs; broken images fall back to a gradient.
+- Verified: schema/seed on PostgreSQL 16, 88 API/business-rule checks, production build, authenticated and anonymous page rendering. **Not verified:** visual layout in real browsers on phone/tablet (layouts use responsive Tailwind breakpoints; please eyeball them), and a live Neon connection (tested on local PostgreSQL).
